@@ -1,1 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calculator</title>
+    <style>
+        .calculator {
+            width: 300px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
 
+        #display {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 2em;
+            text-align: right;
+            overflow: hidden;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        button {
+            padding: 20px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .number {
+            background: #e0e0e0;
+        }
+
+        .operator {
+            background: #ff9500;
+            color: white;
+        }
+
+        .equals {
+            background: #007AFF;
+            color: white;
+        }
+
+        .clear {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .decimal {
+            background: #e0e0e0;
+        }
+
+        .backspace {
+            background: #e0e0e0;
+            grid-column: span 2;
+        }
+
+        button:hover {
+            filter: brightness(90%);
+        }
+
+        button:active {
+            filter: brightness(80%);
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div id="display">0</div>
+        <div class="buttons">
+            <button class="clear" data-action="clear">C</button>
+            <button class="backspace" data-action="backspace">⌫</button>
+            <button class="operator" data-action="divide">÷</button>
+            <button class="operator" data-action="multiply">×</button>
+            <button class="number" data-number="7">7</button>
+            <button class="number" data-number="8">8</button>
+            <button class="number" data-number="9">9</button>
+            <button class="operator" data-action="subtract">-</button>
+            <button class="number" data-number="4">4</button>
+            <button class="number" data-number="5">5</button>
+            <button class="number" data-number="6">6</button>
+            <button class="operator" data-action="add">+</button>
+            <button class="number" data-number="1">1</button>
+            <button class="number" data-number="2">2</button>
+            <button class="number" data-number="3">3</button>
+            <button class="equals" data-action="equals">=</button>
+            <button class="number" data-number="0" style="grid-column: span 2;">0</button>
+            <button class="decimal" data-number=".">.</button>
+        </div>
+    </div>
+
+    <script>
+        let displayValue = '0';
+        let firstOperand = null;
+        let operator = null;
+        let waitingForSecondOperand = false;
+
+        const display = document.getElementById('display');
+
+        // Number buttons
+        document.querySelectorAll('[data-number]').forEach(button => {
+            button.addEventListener('click', () => {
+                const number = button.dataset.number;
+                handleNumber(number);
+            });
+        });
+
+        // Operator buttons
+        document.querySelectorAll('[data-action]').forEach(button => {
+            const action = button.dataset.action;
+            if (['add', 'subtract', 'multiply', 'divide'].includes(action)) {
+                button.addEventListener('click', () => {
+                    handleOperator(action);
+                });
+            }
+        });
+
+        // Equals button
+        document.querySelector('[data-action="equals"]').addEventListener('click', () => {
+            if (operator && firstOperand !== null) {
+                const inputValue = parseFloat(displayValue);
+                const result = operate(operator, firstOperand, inputValue);
+                
+                if (isNaN(result)) {
+                    displayError();
+                    return;
+                }
+                
+                displayValue = String(result);
+                firstOperand = null;
+                operator = null;
+                waitingForSecondOperand = true;
+                updateDisplay();
+            }
+        });
+
+        // Clear button
+        document.querySelector('[data-action="clear"]').addEventListener('click', clearCalculator);
+
+        // Backspace button
+        document.querySelector('[data-action="backspace"]').addEventListener('click', () => {
+            if (displayValue.length > 1) {
+                displayValue = displayValue.slice(0, -1);
+            } else {
+                displayValue = '0';
+            }
+            updateDisplay();
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', (event) => {
+            const key = event.key;
+            
+            if (key >= '0' && key <= '9') {
+                event.preventDefault();
+                handleNumber(key);
+            }
+            else if (key === '.') {
+                event.preventDefault();
+                handleDecimal();
+            }
+            else if (['+', '-', '*', '/'].includes(key)) {
+                event.preventDefault();
+                const action = {
+                    '+': 'add',
+                    '-': 'subtract',
+                    '*': 'multiply',
+                    '/': 'divide'
+                }[key];
+                handleOperator(action);
+            }
+            else if (key === 'Enter') {
+                event.preventDefault();
+                document.querySelector('[data-action="equals"]').click();
+            }
+            else if (key === 'Backspace') {
+                event.preventDefault();
+                document.querySelector('[data-action="backspace"]').click();
+            }
+            else if (key === 'Escape') {
+                event.preventDefault();
+                clearCalculator();
+            }
+        });
+
+        function handleNumber(num) {
+            if (waitingForSecondOperand) {
+                displayValue = num;
+                waitingForSecondOperand = false;
+            } else {
+                displayValue = displayValue === '0' ? num : displayValue + num;
+            }
+            updateDisplay();
+        }
+
+        function handleDecimal() {
+            if (waitingForSecondOperand) {
+                displayValue = '0.';
+                waitingForSecondOperand = false;
+            }
+            else if (!displayValue.includes('.')) {
+                displayValue += '.';
+            }
+            updateDisplay();
+        }
+
+        function handleOperator(nextOperator) {
+            const inputValue = parseFloat(displayValue);
+            
+            if (operator && waitingForSecondOperand) {
+                operator = nextOperator;
+                return;
+            }
+
+            if (firstOperand === null) {
+                firstOperand = inputValue;
+            } else if (operator) {
+                const result = operate(operator, firstOperand, inputValue);
+                
+                if (isNaN(result)) {
+                    displayError();
+                    return;
+                }
+                
+                displayValue = String(result);
+                firstOperand = result;
+                updateDisplay();
+            }
+
+            operator = nextOperator;
+            waitingForSecondOperand = true;
+        }
+
+        function operate(op, a, b) {
+            switch(op) {
+                case 'add': return a + b;
+                case 'subtract': return a - b;
+                case 'multiply': return a * b;
+                case 'divide':
+                    if (b === 0) {
+                        displayError();
+                        return NaN;
+                    }
+                    return a / b;
+                default: return b;
+            }
+        }
+
+        function updateDisplay() {
+            // Round long decimals
+            if (displayValue.includes('.') && displayValue.split('.')[1].length > 4) {
+                displayValue = parseFloat(displayValue).toFixed(4);
+            }
+            display.textContent = displayValue;
+        }
+
+        function clearCalculator() {
+            displayValue = '0';
+            firstOperand = null;
+            operator = null;
+            waitingForSecondOperand = false;
+            updateDisplay();
+        }
+
+        function displayError() {
+            displayValue = 'Error';
+            updateDisplay();
+            setTimeout(clearCalculator, 1000);
+        }
+    </script>
+</body>
+</html>
